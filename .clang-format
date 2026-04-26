@@ -1,0 +1,11 @@
+PointerAlignment: Left
+BasedOnStyle: LLVM
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeParens: ControlStatements
+SpaceInEmptyParentheses: false
+ColumnLimit: 100
+IndentWidth: 4
+AllowShortFunctionsOnASingleLine: Inline
+BreakBeforeBraces: Allman
+SortIncludes: true
+#AlignConsecutiveAssignments: true
