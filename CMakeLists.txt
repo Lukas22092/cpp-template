@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.26)
 project(template CXX)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # usually helps with IDE intellisense for external libaries. should be regogized after building
 set(CMAKE_CXX_CPPCHECK "cppcheck;--enable=all;--inline-suppr;--suppress=missingIncludeSystem;--quiet")
 
 file(GLOB SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/* ${CMAKE_CURRENT_SOURCE_DIR}/include/*)
