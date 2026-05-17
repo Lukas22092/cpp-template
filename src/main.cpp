@@ -1,8 +1,15 @@
+#include "Logger.hpp"
+#include "enum_tools.hpp"
 #include <iostream>
-#include <string>
-#include <vector>
 
+
+
+void test(){
+    LOG_ENTRY_EXIT;
+}
 int main()
 {
-    std::cout << "Hello World";
+    LOG_ENTRY_EXIT
+    test();
+    LOG(LogLevel::Info) << "Hello World";
 }

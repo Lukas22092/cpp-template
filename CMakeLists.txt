@@ -6,7 +6,6 @@ set(CMAKE_CXX_CPPCHECK "cppcheck;--enable=all;--inline-suppr;--suppress=missingI
 
 file(GLOB SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/* ${CMAKE_CURRENT_SOURCE_DIR}/include/*)
 
-#add_library(${PROJECT_NAME} ${SOURCES})
 add_executable(${PROJECT_NAME} ${SOURCES})
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
