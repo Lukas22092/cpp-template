@@ -26,7 +26,33 @@
 #include <iostream>
 #include <mutex>
 #include <thread>
-#include "enum_tools.hpp"
+
+enum class LogLevel
+{
+    Trace,
+    Debug,
+    Error,
+    Warn,
+    Info
+};
+
+inline auto EnumToString(LogLevel enum_) noexcept -> const char*
+{
+    const char* final_enum = [&]()
+    {
+        switch(enum_)
+        {
+            case LogLevel::Trace : return "Trace";
+            case LogLevel::Debug : return "Debug";
+            case LogLevel::Error : return "Error";
+            case LogLevel::Warn:  return "Warn";
+            case LogLevel::Info:  return "Info";
+            default:    return "UNKNOWN ENUM TO STRING CALL";
+        }
+    }();
+    return final_enum;
+}
+
 
 /**
  * @brief Singleton that owns a background thread which asynchronously drains
