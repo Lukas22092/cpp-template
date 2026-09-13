@@ -1,18 +1,20 @@
+/**
+ * @file Logger.cpp
+ * @brief Implementation of the Logger and RAII helper classes.
+ */
+
 #include "Logger.hpp"
-#include "enum_tools.hpp"
-#include <fstream>
-#include <iostream>
-#include <thread>
 
-
+/** @brief Constructs the logger and starts its background worker thread. */
 Logger::Logger()
     : thread_([this]() { log(); })
 {
 }
 
+/** @brief Background worker loop that drains the queue and writes each message to "logs.log". */
 void Logger::log()
 {
-    std::ofstream log_file("Logs/logs.log", std::ios::app);
+    std::ofstream log_file("logs.log", std::ios::app);
 
     while (true)
     {
@@ -30,14 +32,18 @@ void Logger::log()
             
             lk.unlock(); 
             if (log_file.is_open()) {
-                log_file << msg << "\n";
+                log_file << msg << '\n';
             }
             lk.lock();
         }
+        if (log_file.is_open()) 
+                log_file.flush(); 
+                
     }
 }
 
-void Logger::push(std::string msg) 
+/** @brief Adds a message to the logging queue and wakes the worker thread. */
+void Logger::push(std::string&& msg) 
 {
     {
         std::lock_guard<std::mutex> lk(m_);
@@ -46,6 +52,7 @@ void Logger::push(std::string msg)
     cv_.notify_one();
 }
 
+/** @brief Signals the worker thread to stop, wakes it, and joins it before destruction completes. */
 Logger::~Logger()
 {
     stop_ = true;
@@ -53,21 +60,20 @@ Logger::~Logger()
     if(thread_.joinable()) thread_.join();
 }
 
-
-// --- LogStream Implementations ---
-
+/** @brief Access the internal stream buffer. */
 std::stringstream& LogStream::getStream()
 {
     return stream_;
 }
 
-LogStream::LogStream(LogLevel log_level, std::__thread_id thread_id, const char* function_name)
+/** @brief Captures the severity, thread id, and originating function for this log entry. */
+LogStream::LogStream(LogLevel log_level, std::thread::id thread_id, const char* function_name)
     : 
-    log_level(log_level),
+    log_level_(log_level),
     function_name_(function_name),
-    thread_id(thread_id)
+    thread_id_(thread_id)
 {
-    auto now = std::chrono::system_clock::now();
+auto now = std::chrono::system_clock::now();
     auto time_t_now = std::chrono::system_clock::to_time_t(now);
     auto local_time = *std::localtime(&time_t_now);
 
@@ -94,26 +100,46 @@ LogStream::LogStream(LogLevel log_level, std::__thread_id thread_id, const char*
             colon_pos = clean_func.find("::", colon_pos + 1);
         }
 
-    stream_  << "[" << EnumToString(log_level) << "] " << thread_id << " " <<  std::put_time(&local_time, "%H:%M:%S") << " " << clean_func << " | "; 
-}
+    char time_buffer[9]; // "HH:MM:SS\0" is 9 bytes
+    std::strftime(time_buffer, sizeof(time_buffer), "%H:%M:%S", &local_time);
 
+    stream_ << "[" << EnumToString(log_level) << "] " 
+            << thread_id << " " 
+            << time_buffer << " " 
+
+            << clean_func << " | ";
+}
+bool Logger::isLevelEnabled(LogLevel level) const {
+            std::lock_guard<std::mutex> lk(m_);
+            return logged_levels_.empty() || logged_levels_.contains(level);
+        }
+
+/** @brief Forwards the accumulated stream text to Logger::push(). */
 LogStream::~LogStream()
 {
-    Logger::getInstance().push(stream_.str());
+    if (Logger::getInstance().is_logging_enabled_ && Logger::getInstance().isLevelEnabled(log_level_)) 
+    {
+        Logger::getInstance().push(stream_.str());
+    }
 }
 
-
-// --- LogEntryExit Implementations ---
-
-LogEntryExit::LogEntryExit(const char* function_name)
-: function_name_(function_name)
+/** @brief Records the current time so the destructor can compute how long the traced function ran. */
+LogEntryExit::LogEntryExit(const char* function_name, bool should_log)
+    : function_name_(function_name), should_log_(should_log)
 {
-    t0 = std::chrono::high_resolution_clock::now();
+    if (should_log_) {
+        t0 = std::chrono::high_resolution_clock::now();
+        
+        LogStream(LogLevel::Trace, std::this_thread::get_id(), function_name_) << "ENTRY";
+    }
 }
 
+/** @brief Computes the elapsed time since construction and emits a Trace-level "EXIT - <seconds>s" log entry. */
 LogEntryExit::~LogEntryExit()
 {
-    const auto t1 = std::chrono::high_resolution_clock::now();
-    std::string s = std::to_string(std::chrono::duration<double>(t1 - t0).count()) + "s";
-    LogStream(LogLevel::Trace, std::this_thread::get_id(), function_name_) << "EXIT - " << s;
+    if (should_log_) {
+        const auto t1 = std::chrono::high_resolution_clock::now();
+        std::string s = std::to_string(std::chrono::duration<double>(t1 - t0).count()) + "s";
+        LogStream(LogLevel::Trace, std::this_thread::get_id(), function_name_) << "EXIT - " << s;
+    }
 }
